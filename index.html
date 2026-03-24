@@ -161,6 +161,34 @@
     .legend-taken     { background: #9e9e9e; }
     .legend-selected  { background: #cc0000; }
 
+    /* Stadium placeholder (shown before any category clicked) */
+    #stadium-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 580px; height: 320px;
+      background: #1a3a1a;
+      border-radius: 12px;
+      border: 3px solid #2d6a2d;
+      color: #aaa;
+      font-size: 14px;
+      gap: 12px;
+    }
+    #stadium-placeholder .pitch {
+      width: 120px; height: 70px;
+      background: #2d8a2d;
+      border-radius: 50%;
+      border: 3px solid #5aba5a;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 11px; font-weight: bold; letter-spacing: 1px;
+    }
+    #stadium-placeholder p { color: #888; font-size: 13px; }
+
+    /* seat map — hidden until category clicked */
+    #seat-map-wrap { display: none; flex-direction: column; align-items: center; }
+    #seat-map-wrap.visible { display: flex; }
+
     #konva-host {
       border: 1px solid #ddd; border-radius: 4px;
       background: white; overflow: hidden;
@@ -177,6 +205,7 @@
     #proceed-btn:hover { background: #aa0000; }
     #proceed-btn.visible { display: block; }
     #seat-status { margin-top: 10px; font-size: 13px; color: #555; }
+    #selected-label { margin-top: 6px; font-size: 13px; color: #333; font-weight: 600; min-height: 20px; }
 
     /* ── Page 3: Payment success ─────────────────── */
     #page-payment { padding: 60px 24px; text-align: center; }
@@ -323,9 +352,19 @@
       </div>
     </div>
 
-    <div id="konva-host"></div>
-    <button id="proceed-btn">Proceed</button>
-    <div id="seat-status"></div>
+    <!-- Stadium view shown first -->
+    <div id="stadium-placeholder">
+      <div class="pitch">PITCH</div>
+      <p>← Select a category on the left to view seats →</p>
+    </div>
+
+    <!-- Seat map shown only after category click -->
+    <div id="seat-map-wrap">
+      <div id="konva-host"></div>
+      <div id="selected-label"></div>
+      <button id="proceed-btn">Proceed</button>
+      <div id="seat-status"></div>
+    </div>
   </div>
 </div>
 
@@ -386,20 +425,25 @@ document.getElementById('continue-btn').addEventListener('click', () => {
   const tp = document.getElementById('page-tickets');
   tp.classList.remove('active');
   tp.style.display = 'none';
-  // Show category page
+  // Show category page (stadium view, no seat map yet)
   const cp = document.getElementById('page-category');
   cp.style.display = 'flex';
   cp.classList.add('active');
-  // Init Konva once
-  if (!konvaStage) initKonva();
+  // Do NOT init Konva here — wait for category click
 });
 
-// ── Category click → highlight + reset seats ─────────────────
+// ── Category click → show seat map, highlight row, reset seats ──
 document.querySelectorAll('.cat-row').forEach(row => {
   row.addEventListener('click', () => {
     document.querySelectorAll('.cat-row').forEach(r => r.classList.remove('active'));
     row.classList.add('active');
-    resetSeats();
+
+    // Hide stadium placeholder, show seat map
+    document.getElementById('stadium-placeholder').style.display = 'none';
+    document.getElementById('seat-map-wrap').classList.add('visible');
+
+    // Build (or rebuild) Konva stage for this category
+    initKonva(row.dataset.cat);
   });
 });
 
