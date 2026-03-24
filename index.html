@@ -157,8 +157,8 @@
     }
     .legend-item { display: flex; align-items: center; gap: 6px; }
     .legend-box { width: 16px; height: 16px; border-radius: 2px; border: 1px solid #bbb; }
-    .legend-available { background: #ffffff; border: 1px solid #aaa; }
-    .legend-taken     { background: #9e9e9e; }
+    .legend-available { background: #ffffff; border: 1px solid #888; }
+    .legend-taken     { background: #aaaaaa; border: 1px solid #aaaaaa; }
     .legend-selected  { background: #cc0000; }
 
     /* Stadium placeholder (shown before any category clicked) */
@@ -461,44 +461,43 @@ document.getElementById('proceed-btn').addEventListener('click', () => {
 
 
 // ═══════════════════════════════════════════════════════════
-// KONVA SEAT MAP
-// Mimics the real RCB TicketGenie canvas seat map.
-//
-// Available seats = gold (#e8b400) — passes isAvailableFill()
-// Unavailable     = grey (#9e9e9e) — rejected by isAvailableFill()
+// KONVA SEAT MAP — mirrors real RCB site exactly:
+//   circles with seat numbers, white = available, grey = unavailable
+//   rows G→A top to bottom, labels on both sides
 // ═══════════════════════════════════════════════════════════
 
-const ROWS      = 6;
-const COLS      = 25;
-const SEAT_W    = 16;
-const SEAT_H    = 16;
-const SEAT_GAP  = 4;   // px between seats
-const ROW_GAP   = 6;   // px between rows
-const PAD_X     = 24;  // left padding
-const PAD_Y     = 14;
-const LABEL_W   = 14;
-const STAGE_W   = PAD_X + LABEL_W + COLS * (SEAT_W + SEAT_GAP) + PAD_X;
-const STAGE_H   = PAD_Y + ROWS * (SEAT_H + ROW_GAP) + PAD_Y;
+const ROWS     = 7;          // G F E D C B A
+const COLS     = 25;
+const R        = 9;          // circle radius (px) — matches real site seat size
+const SEAT_GAP = 2;          // gap between circle edges
+const ROW_GAP  = 4;          // gap between rows
+const STEP     = R * 2 + SEAT_GAP;   // centre-to-centre distance
+const ROW_STEP = R * 2 + ROW_GAP;
+const PAD_X    = 32;         // left padding (room for row label)
+const PAD_Y    = 20;         // top padding
+const LABEL_W  = 16;
+const STAGE_W  = PAD_X + LABEL_W + COLS * STEP + LABEL_W + PAD_X;
+const STAGE_H  = PAD_Y + ROWS * ROW_STEP + PAD_Y;
 
-const FILL_AVAILABLE = '#ffffff';  // WHITE  → available (matches real RCB site)
-const FILL_TAKEN     = '#9e9e9e';  // grey   → unavailable
-const FILL_SELECTED  = '#cc0000';  // red    → selected
-const FILL_HOVER     = '#f0f0f0';  // light grey → hover
+const FILL_AVAILABLE = '#ffffff';   // white  → available
+const FILL_TAKEN     = '#aaaaaa';   // grey   → unavailable
+const FILL_SELECTED  = '#cc0000';   // red    → selected
+const STROKE_AVAIL   = '#888888';   // border on white circles so they're visible
+const STROKE_TAKEN   = '#aaaaaa';
+const STROKE_SEL     = '#990000';
 
-const ROW_LABELS = ['G', 'F', 'E', 'D', 'C', 'B'];
+const ROW_LABELS = ['G', 'F', 'E', 'D', 'C', 'B', 'A'];  // top → bottom
 
-// Pattern: available seat positions (row, col) — ensures adjacent pairs exist
-// Guaranteed adjacent pairs: row1 cols 8-12, row2 cols 14-17, row3 cols 5-7, row4 cols 19-21
+// Available seat pattern — row A (index 6) has a cluster so script can find adjacent pairs
 function isAvailable(r, c) {
-  if (r === 1 && c >= 8  && c <= 12) return true;
-  if (r === 2 && c >= 14 && c <= 17) return true;
-  if (r === 3 && c >= 5  && c <= 7)  return true;
-  if (r === 4 && c >= 19 && c <= 21) return true;
+  if (r === 6 && c >= 10 && c <= 16) return true;  // row A: seats 11-17 available
+  if (r === 5 && c >= 18 && c <= 21) return true;  // row B: seats 19-22
+  if (r === 4 && c >= 6  && c <= 9)  return true;  // row C: seats 7-10
+  if (r === 3 && c >= 13 && c <= 15) return true;  // row D: seats 14-16
   return false;
 }
 
 function initKonva(catName) {
-  // Destroy existing stage on category change
   if (konvaStage) {
     konvaStage.destroy();
     konvaStage = null;
@@ -507,7 +506,6 @@ function initKonva(catName) {
     document.getElementById('proceed-btn').classList.remove('visible');
     document.getElementById('seat-status').textContent = '';
     document.getElementById('selected-label').textContent = '';
-    // clear host div
     document.getElementById('konva-host').innerHTML = '';
   }
 
@@ -515,103 +513,116 @@ function initKonva(catName) {
     container: 'konva-host',
     width:  STAGE_W,
     height: STAGE_H,
-    pixelRatio: 1,   // keeps canvas.width === CSS width so clickKonvaSeat coords are correct
+    pixelRatio: 1,
   });
 
   konvaLayer = new Konva.Layer();
   konvaStage.add(konvaLayer);
 
-  // Column number header row (1, 5, 10, 15, 20, 25)
-  [1, 5, 10, 15, 20, 25].forEach(n => {
-    const c = n - 1;
-    const hx = PAD_X + LABEL_W + c * (SEAT_W + SEAT_GAP) + SEAT_W / 2 - 4;
-    konvaLayer.add(new Konva.Text({
-      x: hx, y: 0,
-      text: String(n),
-      fontSize: 9, fill: '#999',
-      listening: false,
-    }));
-  });
-
   for (let r = 0; r < ROWS; r++) {
-    const y = PAD_Y + r * (SEAT_H + ROW_GAP);
+    const cy = PAD_Y + R + r * ROW_STEP;
+    const rowLabel = ROW_LABELS[r];
 
-    // Row label (e.g. B, C, D…)
+    // Row label LEFT
     konvaLayer.add(new Konva.Text({
-      x: PAD_X, y: y + 3,
-      text: ROW_LABELS[r],
-      fontSize: 11, fill: '#666', fontStyle: 'bold',
+      x: PAD_X - 4, y: cy - 6,
+      text: rowLabel, fontSize: 11, fill: '#444', fontStyle: 'bold',
       listening: false,
     }));
 
     for (let c = 0; c < COLS; c++) {
-      const x    = PAD_X + LABEL_W + c * (SEAT_W + SEAT_GAP);
+      const cx    = PAD_X + LABEL_W + R + c * STEP;
       const avail = isAvailable(r, c);
-      const seatId = ROW_LABELS[r] + (c + 1);   // e.g. "B3"
+      const seatId = rowLabel + (c + 1);  // e.g. "A12"
 
-      const seat = new Konva.Rect({
-        x, y,
-        width: SEAT_W, height: SEAT_H,
-        fill: avail ? FILL_AVAILABLE : FILL_TAKEN,
-        cornerRadius: 2,
-        listening: avail,
-        name: avail ? 'available' : 'taken',
+      // Seat number text inside circle
+      const numStr = String(c + 1);
+      const fontSize = numStr.length > 1 ? 6 : 7;
+
+      const circle = new Konva.Circle({
+        x: cx, y: cy, radius: R,
+        fill:          avail ? FILL_AVAILABLE : FILL_TAKEN,
+        stroke:        avail ? STROKE_AVAIL   : STROKE_TAKEN,
+        strokeWidth:   1,
+        listening:     avail,
+        name:          avail ? 'available' : 'taken',
+      });
+      circle._r  = r;
+      circle._c  = c;
+      circle._id = seatId;
+
+      const numLabel = new Konva.Text({
+        x: cx - (numStr.length > 1 ? 5 : 3),
+        y: cy - 4,
+        text: numStr,
+        fontSize,
+        fill: avail ? '#333' : '#777',
+        listening: false,
       });
 
-      // Store row/col for seat number display
-      seat._r = r;
-      seat._c = c;
-      seat._id = seatId;
-
       if (avail) {
-        seat.on('click tap', () => handleSeatClick(seat));
-        seat.on('mouseenter', () => {
-          if (seat.fill() !== FILL_SELECTED) {
-            seat.fill(FILL_HOVER);
+        circle.on('click tap', () => handleSeatClick(circle, numLabel));
+        circle.on('mouseenter', () => {
+          if (circle.fill() !== FILL_SELECTED) {
+            circle.fill('#e8e8e8');
             konvaLayer.batchDraw();
           }
           document.body.style.cursor = 'pointer';
           document.getElementById('seat-status').textContent = 'Seat ' + seatId;
         });
-        seat.on('mouseleave', () => {
-          if (seat.fill() !== FILL_SELECTED) {
-            seat.fill(FILL_AVAILABLE);
+        circle.on('mouseleave', () => {
+          if (circle.fill() !== FILL_SELECTED) {
+            circle.fill(FILL_AVAILABLE);
             konvaLayer.batchDraw();
           }
           document.body.style.cursor = 'default';
-          // Only clear hover label if not showing selection
-          if (selectedSeats.length < 2) {
+          if (selectedSeats.length < 2)
             document.getElementById('seat-status').textContent =
               selectedSeats.length === 1 ? 'Select 1 more seat.' : '';
-          }
         });
       }
 
-      konvaLayer.add(seat);
+      konvaLayer.add(circle);
+      konvaLayer.add(numLabel);
     }
+
+    // Row label RIGHT
+    const rxRight = PAD_X + LABEL_W + COLS * STEP + 4;
+    konvaLayer.add(new Konva.Text({
+      x: rxRight, y: cy - 6,
+      text: rowLabel, fontSize: 11, fill: '#444', fontStyle: 'bold',
+      listening: false,
+    }));
   }
 
   konvaLayer.draw();
 }
 
-function handleSeatClick(seat) {
-  const idx = selectedSeats.indexOf(seat);
-
+function handleSeatClick(circle, numLabel) {
+  const idx = selectedSeats.indexOf(circle);
   if (idx !== -1) {
-    // Deselect
     selectedSeats.splice(idx, 1);
-    seat.fill(FILL_AVAILABLE);
+    circle.fill(FILL_AVAILABLE);
+    circle.stroke(STROKE_AVAIL);
+    numLabel.fill('#333');
   } else if (selectedSeats.length < 2) {
-    selectedSeats.push(seat);
-    seat.fill(FILL_SELECTED);
+    selectedSeats.push(circle);
+    circle.fill(FILL_SELECTED);
+    circle.stroke(STROKE_SEL);
+    numLabel.fill('#fff');
   } else {
-    // Already 2 — replace oldest
     const old = selectedSeats.shift();
+    // find the numLabel for old (it's the next sibling in layer children)
+    const oldIdx = konvaLayer.children.indexOf(old);
+    const oldNum = konvaLayer.children[oldIdx + 1];
+    if (oldNum && oldNum.className === 'Text') { oldNum.fill('#333'); }
     old.fill(FILL_AVAILABLE);
-    selectedSeats.push(seat);
-    seat.fill(FILL_SELECTED);
+    old.stroke(STROKE_AVAIL);
+    selectedSeats.push(circle);
+    circle.fill(FILL_SELECTED);
+    circle.stroke(STROKE_SEL);
+    numLabel.fill('#fff');
   }
-
   konvaLayer.batchDraw();
   updateProceedBtn();
 }
