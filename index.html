@@ -157,7 +157,7 @@
     }
     .legend-item { display: flex; align-items: center; gap: 6px; }
     .legend-box { width: 16px; height: 16px; border-radius: 2px; border: 1px solid #bbb; }
-    .legend-available { background: #e8b400; }
+    .legend-available { background: #ffffff; border: 1px solid #aaa; }
     .legend-taken     { background: #9e9e9e; }
     .legend-selected  { background: #cc0000; }
 
@@ -200,10 +200,13 @@
       border: none; padding: 13px 48px;
       font-size: 15px; font-weight: bold;
       border-radius: 4px; cursor: pointer;
-      display: none;
+      /* Always visible once seat map is shown — script must be able to find it */
+      display: block;
+      opacity: 0.35;
+      pointer-events: none;
     }
     #proceed-btn:hover { background: #aa0000; }
-    #proceed-btn.visible { display: block; }
+    #proceed-btn.visible { opacity: 1; pointer-events: auto; }
     #seat-status { margin-top: 10px; font-size: 13px; color: #555; }
     #selected-label { margin-top: 6px; font-size: 13px; color: #333; font-weight: 600; min-height: 20px; }
 
@@ -335,31 +338,30 @@
 
   <!-- Right: seat map -->
   <div class="seat-area">
-    <div class="seat-instructions">
-      You can select upto a <strong>maximum of 2 seats</strong> and tap
-      <strong>'Proceed'</strong>. Seats may be taken if selected by others at the same time.
-    </div>
 
-    <div class="seat-legend">
-      <div class="legend-item">
-        <div class="legend-box legend-available"></div> Available
-      </div>
-      <div class="legend-item">
-        <div class="legend-box legend-taken"></div> Not Available
-      </div>
-      <div class="legend-item">
-        <div class="legend-box legend-selected"></div> Selected
-      </div>
-    </div>
-
-    <!-- Stadium view shown first -->
+    <!-- Stadium view shown first (before any category clicked) -->
     <div id="stadium-placeholder">
       <div class="pitch">PITCH</div>
       <p>← Select a category on the left to view seats →</p>
     </div>
 
-    <!-- Seat map shown only after category click -->
+    <!-- Seat map + controls — shown only after category click -->
     <div id="seat-map-wrap">
+      <div class="seat-instructions">
+        You can select upto a <strong>maximum of 2 seats</strong> and tap
+        <strong>'Proceed'</strong>. Seats may be taken if selected by others at the same time.
+      </div>
+      <div class="seat-legend">
+        <div class="legend-item">
+          <div class="legend-box legend-available"></div> Available
+        </div>
+        <div class="legend-item">
+          <div class="legend-box legend-taken"></div> Not Available
+        </div>
+        <div class="legend-item">
+          <div class="legend-box legend-selected"></div> Selected
+        </div>
+      </div>
       <div id="konva-host"></div>
       <div id="selected-label"></div>
       <button id="proceed-btn">Proceed</button>
@@ -478,10 +480,10 @@ const LABEL_W   = 14;
 const STAGE_W   = PAD_X + LABEL_W + COLS * (SEAT_W + SEAT_GAP) + PAD_X;
 const STAGE_H   = PAD_Y + ROWS * (SEAT_H + ROW_GAP) + PAD_Y;
 
-const FILL_AVAILABLE = '#e8b400';  // gold   → available
+const FILL_AVAILABLE = '#ffffff';  // WHITE  → available (matches real RCB site)
 const FILL_TAKEN     = '#9e9e9e';  // grey   → unavailable
 const FILL_SELECTED  = '#cc0000';  // red    → selected
-const FILL_HOVER     = '#ffcc44';  // bright → hover
+const FILL_HOVER     = '#f0f0f0';  // light grey → hover
 
 const ROW_LABELS = ['G', 'F', 'E', 'D', 'C', 'B'];
 
@@ -495,7 +497,20 @@ function isAvailable(r, c) {
   return false;
 }
 
-function initKonva() {
+function initKonva(catName) {
+  // Destroy existing stage on category change
+  if (konvaStage) {
+    konvaStage.destroy();
+    konvaStage = null;
+    konvaLayer = null;
+    selectedSeats = [];
+    document.getElementById('proceed-btn').classList.remove('visible');
+    document.getElementById('seat-status').textContent = '';
+    document.getElementById('selected-label').textContent = '';
+    // clear host div
+    document.getElementById('konva-host').innerHTML = '';
+  }
+
   konvaStage = new Konva.Stage({
     container: 'konva-host',
     width:  STAGE_W,
@@ -506,20 +521,33 @@ function initKonva() {
   konvaLayer = new Konva.Layer();
   konvaStage.add(konvaLayer);
 
+  // Column number header row (1, 5, 10, 15, 20, 25)
+  [1, 5, 10, 15, 20, 25].forEach(n => {
+    const c = n - 1;
+    const hx = PAD_X + LABEL_W + c * (SEAT_W + SEAT_GAP) + SEAT_W / 2 - 4;
+    konvaLayer.add(new Konva.Text({
+      x: hx, y: 0,
+      text: String(n),
+      fontSize: 9, fill: '#999',
+      listening: false,
+    }));
+  });
+
   for (let r = 0; r < ROWS; r++) {
     const y = PAD_Y + r * (SEAT_H + ROW_GAP);
 
-    // Row label
+    // Row label (e.g. B, C, D…)
     konvaLayer.add(new Konva.Text({
-      x: PAD_X, y: y + 2,
+      x: PAD_X, y: y + 3,
       text: ROW_LABELS[r],
-      fontSize: 11, fill: '#666',
+      fontSize: 11, fill: '#666', fontStyle: 'bold',
       listening: false,
     }));
 
     for (let c = 0; c < COLS; c++) {
       const x    = PAD_X + LABEL_W + c * (SEAT_W + SEAT_GAP);
       const avail = isAvailable(r, c);
+      const seatId = ROW_LABELS[r] + (c + 1);   // e.g. "B3"
 
       const seat = new Konva.Rect({
         x, y,
@@ -533,6 +561,7 @@ function initKonva() {
       // Store row/col for seat number display
       seat._r = r;
       seat._c = c;
+      seat._id = seatId;
 
       if (avail) {
         seat.on('click tap', () => handleSeatClick(seat));
@@ -542,6 +571,7 @@ function initKonva() {
             konvaLayer.batchDraw();
           }
           document.body.style.cursor = 'pointer';
+          document.getElementById('seat-status').textContent = 'Seat ' + seatId;
         });
         seat.on('mouseleave', () => {
           if (seat.fill() !== FILL_SELECTED) {
@@ -549,6 +579,11 @@ function initKonva() {
             konvaLayer.batchDraw();
           }
           document.body.style.cursor = 'default';
+          // Only clear hover label if not showing selection
+          if (selectedSeats.length < 2) {
+            document.getElementById('seat-status').textContent =
+              selectedSeats.length === 1 ? 'Select 1 more seat.' : '';
+          }
         });
       }
 
@@ -582,20 +617,23 @@ function handleSeatClick(seat) {
 }
 
 function updateProceedBtn() {
-  const btn = document.getElementById('proceed-btn');
+  const btn    = document.getElementById('proceed-btn');
   const status = document.getElementById('seat-status');
+  const label  = document.getElementById('selected-label');
 
   if (selectedSeats.length === 2) {
     const s1 = selectedSeats[0], s2 = selectedSeats[1];
     btn.classList.add('visible');
-    status.textContent =
-      `✅ Seats selected: Row ${ROW_LABELS[s1._r]} #${s1._c + 1}` +
-      ` & Row ${ROW_LABELS[s2._r]} #${s2._c + 1}. Click Proceed.`;
+    label.textContent = `Selected: ${s1._id} & ${s2._id}`;
+    status.textContent = '✅ Click Proceed to continue.';
+  } else if (selectedSeats.length === 1) {
+    btn.classList.remove('visible');
+    label.textContent = `Selected: ${selectedSeats[0]._id}`;
+    status.textContent = 'Select 1 more seat.';
   } else {
     btn.classList.remove('visible');
-    status.textContent = selectedSeats.length === 1
-      ? '1 seat selected – select 1 more.'
-      : '';
+    label.textContent = '';
+    status.textContent = '';
   }
 }
 
