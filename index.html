@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RCB Tickets – TEST PAGE</title>
+  <!-- Konva.js (same library the real site uses) -->
+  <script src="https://unpkg.com/konva@9/konva.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f1f1f1; }
+
+    /* ── Header ─────────────────────────────────── */
+    .rcb-header {
+      background: #cc0000;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 32px;
+    }
+    .rcb-logo { color: #e8b400; font-size: 22px; font-weight: 900; letter-spacing: 3px; }
+    .rcb-nav { display: flex; gap: 4px; }
+    .rcb-nav a {
+      color: white; text-decoration: none;
+      padding: 6px 12px; font-size: 13px; font-weight: 600;
+    }
+    .rcb-nav a:hover { background: rgba(255,255,255,0.15); border-radius: 3px; }
+
+    /* ── Sub-header ─────────────────────────────── */
+    .rcb-subheader {
+      background: white;
+      padding: 10px 24px;
+      display: flex;
+      gap: 12px;
+      border-bottom: 1px solid #ddd;
+    }
+    .tab-btn {
+      border: none; padding: 8px 18px; border-radius: 4px;
+      cursor: pointer; font-weight: bold; font-size: 13px;
+    }
+    .tab-btn.active { background: #cc0000; color: white; }
+    .tab-btn.inactive { background: #eee; color: #555; }
+
+    /* ── Test banner ────────────────────────────── */
+    .test-banner {
+      background: #fffbea;
+      border-bottom: 3px solid #e8b400;
+      padding: 10px 24px;
+      text-align: center;
+      font-weight: bold;
+      color: #7a5c00;
+      font-size: 13px;
+    }
+    .test-banner code {
+      background: #fff3cd; padding: 2px 6px;
+      border-radius: 3px; font-size: 12px;
+    }
+
+    /* ── Pages ──────────────────────────────────── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── Page 1: Ticket listing ─────────────────── */
+    #page-tickets { padding: 24px; }
+    .breadcrumb { font-size: 12px; color: #888; margin-bottom: 16px; }
+    .breadcrumb span { color: #cc0000; }
+    .waiting-msg { color: #888; font-size: 14px; margin-bottom: 12px; font-style: italic; }
+    .match-card {
+      background: white; border-radius: 8px;
+      padding: 20px 24px; max-width: 720px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      display: flex; align-items: center; gap: 24px;
+    }
+    .match-info { flex: 1; }
+    .match-date { font-size: 13px; color: #666; margin-bottom: 6px; font-weight: 600; }
+    .match-teams {
+      display: flex; align-items: center;
+      gap: 16px; font-weight: bold; font-size: 15px;
+    }
+    .vs { color: #aaa; font-size: 13px; font-weight: normal; }
+    .match-venue { font-size: 12px; color: #999; margin-top: 4px; }
+    .match-actions { text-align: center; }
+    .price-range { font-size: 12px; color: #888; margin-bottom: 6px; }
+    #buy-tickets-btn {
+      background: #cc0000; color: white;
+      border: none; padding: 12px 24px;
+      border-radius: 4px; font-weight: bold;
+      font-size: 15px; cursor: pointer;
+      display: none; /* appears after delay */
+    }
+    #buy-tickets-btn:hover { background: #aa0000; }
+
+    /* ── Popup overlay ──────────────────────────── */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5); z-index: 200;
+      align-items: center; justify-content: center;
+    }
+    .overlay.active { display: flex; }
+    .popup-box {
+      background: #fffde7; border-radius: 8px;
+      padding: 32px; max-width: 460px; width: 90%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    }
+    .popup-box h3 { margin-bottom: 16px; font-size: 18px; }
+    .popup-box ul { margin: 0 0 24px 20px; font-size: 14px; line-height: 1.9; }
+    .popup-box ul li strong { color: #cc0000; }
+    #continue-btn {
+      background: #cc0000; color: white;
+      border: none; padding: 12px 30px;
+      border-radius: 4px; font-weight: bold;
+      cursor: pointer; font-size: 14px; float: right;
+    }
+    #continue-btn:hover { background: #aa0000; }
+
+    /* ── Page 2: Category + Seat selection ──────── */
+    #page-category { display: none; }
+    #page-category.active { display: flex; min-height: calc(100vh - 120px); }
+
+    .category-sidebar {
+      width: 210px; min-width: 210px;
+      background: white; border-right: 1px solid #ddd;
+      padding: 12px 0;
+    }
+    .sidebar-title {
+      padding: 8px 16px 12px;
+      font-size: 12px; color: #666;
+      text-transform: uppercase;
+      font-weight: 700; letter-spacing: 1px;
+      border-bottom: 1px solid #eee; margin-bottom: 4px;
+    }
+    .cat-row {
+      padding: 11px 14px; cursor: pointer;
+      border-bottom: 1px solid #f5f5f5;
+      display: flex; justify-content: space-between;
+      align-items: flex-start; gap: 8px;
+    }
+    .cat-row:hover { background: #fafafa; }
+    .cat-row.active { background: #fff3f3; border-left: 3px solid #cc0000; }
+    .cat-name { font-size: 12px; font-weight: 600; line-height: 1.4; color: #222; }
+    .cat-price { font-size: 11px; color: #cc0000; white-space: nowrap; font-weight: 600; }
+
+    .seat-area {
+      flex: 1; padding: 20px 24px;
+      display: flex; flex-direction: column; align-items: center;
+    }
+    .seat-instructions {
+      background: #e8f4fd; border: 1px solid #90cdf4;
+      border-radius: 6px; padding: 10px 20px;
+      font-size: 13px; margin-bottom: 14px;
+      text-align: center; max-width: 620px; width: 100%;
+    }
+    .seat-instructions strong { color: #cc0000; }
+    .seat-legend {
+      display: flex; gap: 24px; margin-bottom: 12px;
+      font-size: 13px; align-items: center;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-box { width: 16px; height: 16px; border-radius: 2px; border: 1px solid #bbb; }
+    .legend-available { background: #e8b400; }
+    .legend-taken     { background: #9e9e9e; }
+    .legend-selected  { background: #cc0000; }
+
+    #konva-host {
+      border: 1px solid #ddd; border-radius: 4px;
+      background: white; overflow: hidden;
+    }
+
+    #proceed-btn {
+      margin-top: 16px;
+      background: #cc0000; color: white;
+      border: none; padding: 13px 48px;
+      font-size: 15px; font-weight: bold;
+      border-radius: 4px; cursor: pointer;
+      display: none;
+    }
+    #proceed-btn:hover { background: #aa0000; }
+    #proceed-btn.visible { display: block; }
+    #seat-status { margin-top: 10px; font-size: 13px; color: #555; }
+
+    /* ── Page 3: Payment success ─────────────────── */
+    #page-payment { padding: 60px 24px; text-align: center; }
+    #page-payment h2 { color: #2d7a2d; font-size: 24px; margin-bottom: 16px; }
+    #page-payment p { color: #555; font-size: 15px; line-height: 1.7; }
+    .payment-summary {
+      margin: 28px auto; padding: 24px;
+      background: white; border-radius: 8px;
+      display: inline-block; text-align: left;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      font-size: 14px; line-height: 2;
+    }
+    .retry-btn {
+      margin-top: 16px; padding: 10px 28px;
+      cursor: pointer; border: 2px solid #cc0000;
+      background: white; color: #cc0000;
+      border-radius: 4px; font-weight: bold;
+      font-size: 14px;
+    }
+    .retry-btn:hover { background: #cc0000; color: white; }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────── -->
+<div class="rcb-header">
+  <span class="rcb-logo">RCB</span>
+  <nav class="rcb-nav">
+    <a href="#">HOME</a>
+    <a href="#">NEWS</a>
+    <a href="#">RCB TV</a>
+    <a href="#">TEAM</a>
+    <a href="#">FIXTURES</a>
+    <a href="#">SHOP</a>
+  </nav>
+</div>
+
+<!-- ── Sub-header ──────────────────────────────────────── -->
+<div class="rcb-subheader">
+  <button class="tab-btn active">🎫 TICKETS</button>
+  <button class="tab-btn inactive">👕 MERCHANDISE</button>
+</div>
+
+<!-- ── Test banner ─────────────────────────────────────── -->
+<div class="test-banner">
+  ⚠️ TEST PAGE — Before pasting the script, set <code>const START_AT = null;</code> in the script (otherwise it waits until the scheduled time). Then paste in console and press Enter.
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- PAGE 1 – Ticket listing                                 -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div id="page-tickets" class="page active">
+  <div style="padding:24px">
+    <div class="breadcrumb">Shop &rsaquo; <span>Ticket</span></div>
+    <p class="waiting-msg" id="waiting-msg">
+      ⏳ BUY TICKETS button appears in <strong><span id="countdown">3</span>s</strong>
+      &nbsp;(simulating ticket sale going live)
+    </p>
+
+    <div class="match-card">
+      <div class="match-info">
+        <div class="match-date">SAT, MAR 28, 2026 07:30 PM</div>
+        <div class="match-teams">
+          <span>Royal Challengers Bengaluru</span>
+          <span class="vs">VS</span>
+          <span>Sunrisers Hyderabad</span>
+        </div>
+        <div class="match-venue">M. Chinnaswamy Stadium, Bengaluru</div>
+      </div>
+      <div class="match-actions">
+        <div class="price-range">Rs 3750 – 47000</div>
+        <button id="buy-tickets-btn">🎫 BUY TICKETS</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- POPUP – Important Information                          -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="overlay" id="popup-overlay">
+  <div class="popup-box">
+    <h3>Important Information</h3>
+    <ul>
+      <li>Please note you can only buy <strong>2 ticket/s</strong> in this match.</li>
+      <li>Tickets once booked cannot be cancelled and <strong>NO REFUND</strong> will be applicable.</li>
+    </ul>
+    <button id="continue-btn">🎫 Continue</button>
+    <div style="clear:both"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- PAGE 2 – Category + Seat Selection                     -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div id="page-category" class="page">
+
+  <!-- Left sidebar: categories -->
+  <div class="category-sidebar">
+    <div class="sidebar-title">Category</div>
+
+    <div class="cat-row" data-cat="CONFIRMTKT D CORPORATE">
+      <span class="cat-name">CONFIRMTKT D CORPORATE</span>
+      <span class="cat-price">₹ 4500</span>
+    </div>
+    <div class="cat-row" data-cat="BOAT C STAND">
+      <span class="cat-name">BOAT C STAND</span>
+      <span class="cat-price">₹ 3750</span>
+    </div>
+    <div class="cat-row" data-cat="E STAND">
+      <span class="cat-name">E STAND</span>
+      <span class="cat-price">₹ 4500</span>
+    </div>
+    <div class="cat-row" data-cat="SUN PHARMA A STAND">
+      <span class="cat-name">SUN PHARMA A STAND</span>
+      <span class="cat-price">₹ 3750</span>
+    </div>
+    <div class="cat-row" data-cat="PUMA SHANTA RANGASWAMY B STAND">
+      <span class="cat-name">PUMA SHANTA RANGASWAMY B STAND</span>
+      <span class="cat-price">₹ 3750</span>
+    </div>
+    <div class="cat-row" data-cat="CONFIRMTKT H UPPER">
+      <span class="cat-name">CONFIRMTKT H UPPER</span>
+      <span class="cat-price">₹ 4500</span>
+    </div>
+  </div>
+
+  <!-- Right: seat map -->
+  <div class="seat-area">
+    <div class="seat-instructions">
+      You can select upto a <strong>maximum of 2 seats</strong> and tap
+      <strong>'Proceed'</strong>. Seats may be taken if selected by others at the same time.
+    </div>
+
+    <div class="seat-legend">
+      <div class="legend-item">
+        <div class="legend-box legend-available"></div> Available
+      </div>
+      <div class="legend-item">
+        <div class="legend-box legend-taken"></div> Not Available
+      </div>
+      <div class="legend-item">
+        <div class="legend-box legend-selected"></div> Selected
+      </div>
+    </div>
+
+    <div id="konva-host"></div>
+    <button id="proceed-btn">Proceed</button>
+    <div id="seat-status"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- PAGE 3 – Payment (automation success)                  -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div id="page-payment" class="page">
+  <h2>✅ Seats Reserved! Complete Your Payment</h2>
+  <p>Your 2 seats have been successfully selected by the script.<br>
+     Complete the payment to confirm your booking.</p>
+  <div class="payment-summary">
+    <div><strong>Match:</strong> RCB vs SRH — Sat, Mar 28, 2026</div>
+    <div><strong>Venue:</strong> M. Chinnaswamy Stadium, Bengaluru</div>
+    <div><strong>Seats:</strong> 2 × Adjacent Seats (auto-selected)</div>
+    <div><strong>Amount:</strong> ₹ 7,500</div>
+  </div>
+  <br>
+  <button class="retry-btn" onclick="location.reload()">↩ Test Again</button>
+</div>
+
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// TEST PAGE CONTROLLER
+// ═══════════════════════════════════════════════════════════
+
+const BUY_BTN_DELAY_MS = 3000; // BUY TICKETS button appears after this
+
+let selectedSeats = [];
+let konvaStage    = null;
+let konvaLayer    = null;
+
+// ── Countdown → show BUY TICKETS ────────────────────────────
+let countVal = Math.round(BUY_BTN_DELAY_MS / 1000);
+const countEl = document.getElementById('countdown');
+
+const countTick = setInterval(() => {
+  countVal--;
+  if (countEl) countEl.textContent = countVal;
+  if (countVal <= 0) {
+    clearInterval(countTick);
+    const btn = document.getElementById('buy-tickets-btn');
+    const msg = document.getElementById('waiting-msg');
+    btn.style.display = 'block';
+    msg.innerHTML = '✅ <strong>BUY TICKETS is now live!</strong> (Script should click it automatically)';
+  }
+}, 1000);
+
+// ── BUY TICKETS → popup ──────────────────────────────────────
+document.getElementById('buy-tickets-btn').addEventListener('click', () => {
+  document.getElementById('popup-overlay').classList.add('active');
+});
+
+// ── Continue → category page ─────────────────────────────────
+document.getElementById('continue-btn').addEventListener('click', () => {
+  document.getElementById('popup-overlay').classList.remove('active');
+  // Hide ticket page
+  const tp = document.getElementById('page-tickets');
+  tp.classList.remove('active');
+  tp.style.display = 'none';
+  // Show category page
+  const cp = document.getElementById('page-category');
+  cp.style.display = 'flex';
+  cp.classList.add('active');
+  // Init Konva once
+  if (!konvaStage) initKonva();
+});
+
+// ── Category click → highlight + reset seats ─────────────────
+document.querySelectorAll('.cat-row').forEach(row => {
+  row.addEventListener('click', () => {
+    document.querySelectorAll('.cat-row').forEach(r => r.classList.remove('active'));
+    row.classList.add('active');
+    resetSeats();
+  });
+});
+
+// ── Proceed → payment page ───────────────────────────────────
+document.getElementById('proceed-btn').addEventListener('click', () => {
+  const cp = document.getElementById('page-category');
+  cp.style.display = 'none';
+  cp.classList.remove('active');
+  const pp = document.getElementById('page-payment');
+  pp.style.display = 'block';
+  pp.classList.add('active');
+});
+
+
+// ═══════════════════════════════════════════════════════════
+// KONVA SEAT MAP
+// Mimics the real RCB TicketGenie canvas seat map.
+//
+// Available seats = gold (#e8b400) — passes isAvailableFill()
+// Unavailable     = grey (#9e9e9e) — rejected by isAvailableFill()
+// ═══════════════════════════════════════════════════════════
+
+const ROWS      = 6;
+const COLS      = 25;
+const SEAT_W    = 16;
+const SEAT_H    = 16;
+const SEAT_GAP  = 4;   // px between seats
+const ROW_GAP   = 6;   // px between rows
+const PAD_X     = 24;  // left padding
+const PAD_Y     = 14;
+const LABEL_W   = 14;
+const STAGE_W   = PAD_X + LABEL_W + COLS * (SEAT_W + SEAT_GAP) + PAD_X;
+const STAGE_H   = PAD_Y + ROWS * (SEAT_H + ROW_GAP) + PAD_Y;
+
+const FILL_AVAILABLE = '#e8b400';  // gold   → available
+const FILL_TAKEN     = '#9e9e9e';  // grey   → unavailable
+const FILL_SELECTED  = '#cc0000';  // red    → selected
+const FILL_HOVER     = '#ffcc44';  // bright → hover
+
+const ROW_LABELS = ['G', 'F', 'E', 'D', 'C', 'B'];
+
+// Pattern: available seat positions (row, col) — ensures adjacent pairs exist
+// Guaranteed adjacent pairs: row1 cols 8-12, row2 cols 14-17, row3 cols 5-7, row4 cols 19-21
+function isAvailable(r, c) {
+  if (r === 1 && c >= 8  && c <= 12) return true;
+  if (r === 2 && c >= 14 && c <= 17) return true;
+  if (r === 3 && c >= 5  && c <= 7)  return true;
+  if (r === 4 && c >= 19 && c <= 21) return true;
+  return false;
+}
+
+function initKonva() {
+  konvaStage = new Konva.Stage({
+    container: 'konva-host',
+    width:  STAGE_W,
+    height: STAGE_H,
+    pixelRatio: 1,   // keeps canvas.width === CSS width so clickKonvaSeat coords are correct
+  });
+
+  konvaLayer = new Konva.Layer();
+  konvaStage.add(konvaLayer);
+
+  for (let r = 0; r < ROWS; r++) {
+    const y = PAD_Y + r * (SEAT_H + ROW_GAP);
+
+    // Row label
+    konvaLayer.add(new Konva.Text({
+      x: PAD_X, y: y + 2,
+      text: ROW_LABELS[r],
+      fontSize: 11, fill: '#666',
+      listening: false,
+    }));
+
+    for (let c = 0; c < COLS; c++) {
+      const x    = PAD_X + LABEL_W + c * (SEAT_W + SEAT_GAP);
+      const avail = isAvailable(r, c);
+
+      const seat = new Konva.Rect({
+        x, y,
+        width: SEAT_W, height: SEAT_H,
+        fill: avail ? FILL_AVAILABLE : FILL_TAKEN,
+        cornerRadius: 2,
+        listening: avail,
+        name: avail ? 'available' : 'taken',
+      });
+
+      // Store row/col for seat number display
+      seat._r = r;
+      seat._c = c;
+
+      if (avail) {
+        seat.on('click tap', () => handleSeatClick(seat));
+        seat.on('mouseenter', () => {
+          if (seat.fill() !== FILL_SELECTED) {
+            seat.fill(FILL_HOVER);
+            konvaLayer.batchDraw();
+          }
+          document.body.style.cursor = 'pointer';
+        });
+        seat.on('mouseleave', () => {
+          if (seat.fill() !== FILL_SELECTED) {
+            seat.fill(FILL_AVAILABLE);
+            konvaLayer.batchDraw();
+          }
+          document.body.style.cursor = 'default';
+        });
+      }
+
+      konvaLayer.add(seat);
+    }
+  }
+
+  konvaLayer.draw();
+}
+
+function handleSeatClick(seat) {
+  const idx = selectedSeats.indexOf(seat);
+
+  if (idx !== -1) {
+    // Deselect
+    selectedSeats.splice(idx, 1);
+    seat.fill(FILL_AVAILABLE);
+  } else if (selectedSeats.length < 2) {
+    selectedSeats.push(seat);
+    seat.fill(FILL_SELECTED);
+  } else {
+    // Already 2 — replace oldest
+    const old = selectedSeats.shift();
+    old.fill(FILL_AVAILABLE);
+    selectedSeats.push(seat);
+    seat.fill(FILL_SELECTED);
+  }
+
+  konvaLayer.batchDraw();
+  updateProceedBtn();
+}
+
+function updateProceedBtn() {
+  const btn = document.getElementById('proceed-btn');
+  const status = document.getElementById('seat-status');
+
+  if (selectedSeats.length === 2) {
+    const s1 = selectedSeats[0], s2 = selectedSeats[1];
+    btn.classList.add('visible');
+    status.textContent =
+      `✅ Seats selected: Row ${ROW_LABELS[s1._r]} #${s1._c + 1}` +
+      ` & Row ${ROW_LABELS[s2._r]} #${s2._c + 1}. Click Proceed.`;
+  } else {
+    btn.classList.remove('visible');
+    status.textContent = selectedSeats.length === 1
+      ? '1 seat selected – select 1 more.'
+      : '';
+  }
+}
+
+function resetSeats() {
+  if (!konvaLayer) return;
+  selectedSeats.forEach(s => s.fill(FILL_AVAILABLE));
+  selectedSeats = [];
+  konvaLayer.batchDraw();
+  updateProceedBtn();
+}
+</script>
+</body>
+</html>
