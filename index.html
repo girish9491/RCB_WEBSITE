@@ -156,8 +156,8 @@
       font-size: 13px; align-items: center;
     }
     .legend-item { display: flex; align-items: center; gap: 6px; }
-    .legend-box { width: 16px; height: 16px; border-radius: 2px; border: 1px solid #bbb; }
-    .legend-available { background: #ffffff; border: 1px solid #888; }
+    .legend-box { width: 16px; height: 16px; border-radius: 4px; border: 1px solid #bbb; }
+    .legend-available { background: #ffffff; border: 2px solid #c8a200; }
     .legend-taken     { background: #aaaaaa; border: 1px solid #aaaaaa; }
     .legend-selected  { background: #cc0000; }
 
@@ -468,22 +468,24 @@ document.getElementById('proceed-btn').addEventListener('click', () => {
 
 const ROWS     = 7;          // G F E D C B A
 const COLS     = 25;
-const R        = 9;          // circle radius (px) — matches real site seat size
-const SEAT_GAP = 2;          // gap between circle edges
-const ROW_GAP  = 4;          // gap between rows
-const STEP     = R * 2 + SEAT_GAP;   // centre-to-centre distance
-const ROW_STEP = R * 2 + ROW_GAP;
+const SW       = 20;         // seat width (px)
+const SH       = 20;         // seat height (px)
+const CR       = 4;          // corner radius — gives the real site's cut-corner look
+const SEAT_GAP = 3;          // gap between seats
+const ROW_GAP  = 3;          // gap between rows
+const STEP     = SW + SEAT_GAP;   // centre-to-centre distance
+const ROW_STEP = SH + ROW_GAP;
 const PAD_X    = 32;         // left padding (room for row label)
 const PAD_Y    = 20;         // top padding
 const LABEL_W  = 16;
 const STAGE_W  = PAD_X + LABEL_W + COLS * STEP + LABEL_W + PAD_X;
 const STAGE_H  = PAD_Y + ROWS * ROW_STEP + PAD_Y;
 
-const FILL_AVAILABLE = '#ffffff';   // white  → available
+const FILL_AVAILABLE = '#ffffff';   // white  → available (real site)
 const FILL_TAKEN     = '#aaaaaa';   // grey   → unavailable
 const FILL_SELECTED  = '#cc0000';   // red    → selected
-const STROKE_AVAIL   = '#888888';   // border on white circles so they're visible
-const STROKE_TAKEN   = '#aaaaaa';
+const STROKE_AVAIL   = '#c8a200';   // gold border → available (matches real site)
+const STROKE_TAKEN   = '#999999';   // subtle border on taken seats
 const STROKE_SEL     = '#990000';
 
 const ROW_LABELS = ['G', 'F', 'E', 'D', 'C', 'B', 'A'];  // top → bottom
@@ -520,59 +522,67 @@ function initKonva(catName) {
   konvaStage.add(konvaLayer);
 
   for (let r = 0; r < ROWS; r++) {
-    const cy = PAD_Y + R + r * ROW_STEP;
+    // cy = vertical center of this row
+    const cy = PAD_Y + SH / 2 + r * ROW_STEP;
     const rowLabel = ROW_LABELS[r];
 
     // Row label LEFT
     konvaLayer.add(new Konva.Text({
       x: PAD_X - 4, y: cy - 6,
-      text: rowLabel, fontSize: 11, fill: '#444', fontStyle: 'bold',
+      text: rowLabel, fontSize: 11, fill: '#c8a200', fontStyle: 'bold',
       listening: false,
     }));
 
     for (let c = 0; c < COLS; c++) {
-      const cx    = PAD_X + LABEL_W + R + c * STEP;
+      // cx/cy = center of seat rect
+      const cx    = PAD_X + LABEL_W + SW / 2 + c * STEP;
       const avail = isAvailable(r, c);
-      const seatId = rowLabel + (c + 1);  // e.g. "A12"
+      const seatId = rowLabel + (c + 1);
 
-      // Seat number text inside circle
-      const numStr = String(c + 1);
-      const fontSize = numStr.length > 1 ? 6 : 7;
-
-      const circle = new Konva.Circle({
-        x: cx, y: cy, radius: R,
-        fill:          avail ? FILL_AVAILABLE : FILL_TAKEN,
-        stroke:        avail ? STROKE_AVAIL   : STROKE_TAKEN,
-        strokeWidth:   1,
-        listening:     avail,
-        name:          avail ? 'available' : 'taken',
+      // Rounded-rectangle seat (matches real RCB site shape)
+      const rect = new Konva.Rect({
+        x: cx - SW / 2,
+        y: cy - SH / 2,
+        width:        SW,
+        height:       SH,
+        cornerRadius: CR,
+        fill:         avail ? FILL_AVAILABLE : FILL_TAKEN,
+        stroke:       avail ? STROKE_AVAIL   : STROKE_TAKEN,
+        strokeWidth:  avail ? 1.5 : 1,
+        listening:    avail,
+        name:         avail ? 'available' : 'taken',
       });
-      circle._r  = r;
-      circle._c  = c;
-      circle._id = seatId;
+      rect._r  = r;
+      rect._c  = c;
+      rect._id = seatId;
 
+      // Seat number centered inside the rect
+      const numStr   = String(c + 1);
+      const fontSize = numStr.length > 2 ? 6 : numStr.length > 1 ? 7 : 8;
       const numLabel = new Konva.Text({
-        x: cx - (numStr.length > 1 ? 5 : 3),
-        y: cy - 4,
-        text: numStr,
+        x:      cx - SW / 2,
+        y:      cy - fontSize / 2,
+        width:  SW,
+        text:   numStr,
         fontSize,
-        fill: avail ? '#333' : '#777',
+        align:  'center',
+        fill:   avail ? '#444' : '#888',
         listening: false,
       });
 
       if (avail) {
-        circle.on('click tap', () => handleSeatClick(circle, numLabel));
-        circle.on('mouseenter', () => {
-          if (circle.fill() !== FILL_SELECTED) {
-            circle.fill('#e8e8e8');
+        rect.on('click tap', () => handleSeatClick(rect, numLabel));
+        rect.on('mouseenter', () => {
+          if (rect.fill() !== FILL_SELECTED) {
+            rect.fill('#f5f0d0');
             konvaLayer.batchDraw();
           }
           document.body.style.cursor = 'pointer';
           document.getElementById('seat-status').textContent = 'Seat ' + seatId;
         });
-        circle.on('mouseleave', () => {
-          if (circle.fill() !== FILL_SELECTED) {
-            circle.fill(FILL_AVAILABLE);
+        rect.on('mouseleave', () => {
+          if (rect.fill() !== FILL_SELECTED) {
+            rect.fill(FILL_AVAILABLE);
             konvaLayer.batchDraw();
           }
           document.body.style.cursor = 'default';
@@ -582,7 +592,7 @@ function initKonva(catName) {
         });
       }
 
-      konvaLayer.add(circle);
+      konvaLayer.add(rect);
       konvaLayer.add(numLabel);
     }
 
@@ -590,7 +600,7 @@ function initKonva(catName) {
     const rxRight = PAD_X + LABEL_W + COLS * STEP + 4;
     konvaLayer.add(new Konva.Text({
       x: rxRight, y: cy - 6,
-      text: rowLabel, fontSize: 11, fill: '#444', fontStyle: 'bold',
+      text: rowLabel, fontSize: 11, fill: '#c8a200', fontStyle: 'bold',
       listening: false,
     }));
   }
@@ -598,29 +608,32 @@ function initKonva(catName) {
   konvaLayer.draw();
 }
 
-function handleSeatClick(circle, numLabel) {
-  const idx = selectedSeats.indexOf(circle);
+function handleSeatClick(rect, numLabel) {
+  const idx = selectedSeats.indexOf(rect);
   if (idx !== -1) {
     selectedSeats.splice(idx, 1);
-    circle.fill(FILL_AVAILABLE);
-    circle.stroke(STROKE_AVAIL);
-    numLabel.fill('#333');
+    rect.fill(FILL_AVAILABLE);
+    rect.stroke(STROKE_AVAIL);
+    rect.strokeWidth(1.5);
+    numLabel.fill('#444');
   } else if (selectedSeats.length < 2) {
-    selectedSeats.push(circle);
-    circle.fill(FILL_SELECTED);
-    circle.stroke(STROKE_SEL);
+    selectedSeats.push(rect);
+    rect.fill(FILL_SELECTED);
+    rect.stroke(STROKE_SEL);
+    rect.strokeWidth(1.5);
     numLabel.fill('#fff');
   } else {
     const old = selectedSeats.shift();
-    // find the numLabel for old (it's the next sibling in layer children)
     const oldIdx = konvaLayer.children.indexOf(old);
     const oldNum = konvaLayer.children[oldIdx + 1];
-    if (oldNum && oldNum.className === 'Text') { oldNum.fill('#333'); }
+    if (oldNum && oldNum.className === 'Text') { oldNum.fill('#444'); }
     old.fill(FILL_AVAILABLE);
     old.stroke(STROKE_AVAIL);
-    selectedSeats.push(circle);
-    circle.fill(FILL_SELECTED);
-    circle.stroke(STROKE_SEL);
+    old.strokeWidth(1.5);
+    selectedSeats.push(rect);
+    rect.fill(FILL_SELECTED);
+    rect.stroke(STROKE_SEL);
+    rect.strokeWidth(1.5);
     numLabel.fill('#fff');
   }
   konvaLayer.batchDraw();
