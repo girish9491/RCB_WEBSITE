@@ -46,7 +46,6 @@
       background: #fffbea;
       border-bottom: 3px solid #e8b400;
       padding: 10px 24px;
-      text-align: center;
       font-weight: bold;
       color: #7a5c00;
       font-size: 13px;
@@ -55,6 +54,13 @@
       background: #fff3cd; padding: 2px 6px;
       border-radius: 3px; font-size: 12px;
     }
+    .test-banner ul {
+      margin: 8px 0 0 22px;
+      font-weight: normal;
+      font-size: 12px;
+      line-height: 1.9;
+    }
+    .test-banner ul li strong { color: #cc0000; }
 
     /* ── Pages ──────────────────────────────────── */
     .page { display: none; }
@@ -86,7 +92,7 @@
       border: none; padding: 12px 24px;
       border-radius: 4px; font-weight: bold;
       font-size: 15px; cursor: pointer;
-      display: none; /* appears after delay */
+      display: none;
     }
     #buy-tickets-btn:hover { background: #aa0000; }
 
@@ -113,6 +119,33 @@
     }
     #continue-btn:hover { background: #aa0000; }
 
+    /* ── Seat-taken error popup ─────────────────── */
+    #seat-taken-box {
+      background: #fff0f0;
+      border: 2px solid #cc0000;
+      border-radius: 8px;
+      padding: 32px;
+      max-width: 440px; width: 90%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+    #seat-taken-box h3 {
+      color: #cc0000; font-size: 19px; margin-bottom: 12px;
+    }
+    #seat-taken-box p {
+      font-size: 14px; line-height: 1.7; color: #333; margin-bottom: 24px;
+    }
+    #seat-taken-ok-btn {
+      background: #cc0000; color: white;
+      border: none; padding: 10px 32px;
+      border-radius: 4px; font-weight: bold;
+      cursor: pointer; font-size: 14px;
+    }
+    #seat-taken-ok-btn:hover { background: #aa0000; }
+    #seat-taken-countdown {
+      font-size: 11px; color: #999; margin-top: 12px;
+    }
+
     /* ── Page 2: Category + Seat selection ──────── */
     #page-category { display: none; }
     #page-category.active { display: flex; min-height: calc(100vh - 120px); }
@@ -137,13 +170,33 @@
     }
     .cat-row:hover { background: #fafafa; }
     .cat-row.active { background: #fff3f3; border-left: 3px solid #cc0000; }
+    .cat-row.soldout .cat-name { color: #bbb; }
+    .cat-row.soldout .cat-price { color: #ccc; }
     .cat-name { font-size: 12px; font-weight: 600; line-height: 1.4; color: #222; }
     .cat-price { font-size: 11px; color: #cc0000; white-space: nowrap; font-weight: 600; }
+    .cat-badge {
+      font-size: 9px; color: white; background: #999;
+      border-radius: 3px; padding: 1px 4px; margin-top: 2px;
+      display: inline-block;
+    }
 
     .seat-area {
       flex: 1; padding: 20px 24px;
       display: flex; flex-direction: column; align-items: center;
     }
+
+    /* Category info bar */
+    #cat-info-bar {
+      display: none;
+      background: #e8f4fd; border: 1px solid #90cdf4;
+      border-radius: 6px; padding: 8px 20px;
+      font-size: 13px; margin-bottom: 12px;
+      text-align: center; max-width: 620px; width: 100%;
+    }
+    #cat-info-bar.visible { display: block; }
+    #cat-info-bar.warn { background: #fff3cd; border-color: #e8b400; }
+    #cat-info-bar.error { background: #fff0f0; border-color: #cc0000; }
+
     .seat-instructions {
       background: #e8f4fd; border: 1px solid #90cdf4;
       border-radius: 6px; padding: 10px 20px;
@@ -161,7 +214,6 @@
     .legend-taken     { background: #aaaaaa; border: 1px solid #aaaaaa; }
     .legend-selected  { background: #cc0000; }
 
-    /* Stadium placeholder (shown before any category clicked) */
     #stadium-placeholder {
       display: flex;
       flex-direction: column;
@@ -185,7 +237,6 @@
     }
     #stadium-placeholder p { color: #888; font-size: 13px; }
 
-    /* seat map — hidden until category clicked */
     #seat-map-wrap { display: none; flex-direction: column; align-items: center; }
     #seat-map-wrap.visible { display: flex; }
 
@@ -200,7 +251,6 @@
       border: none; padding: 13px 48px;
       font-size: 15px; font-weight: bold;
       border-radius: 4px; cursor: pointer;
-      /* Always visible once seat map is shown — script must be able to find it */
       display: block;
       opacity: 0.35;
       pointer-events: none;
@@ -254,12 +304,15 @@
 
 <!-- ── Test banner ─────────────────────────────────────── -->
 <div class="test-banner">
-  ⚠️ TEST PAGE — Before pasting the script, set <code>const START_AT = null;</code> in the script (otherwise it waits until the scheduled time). Then paste in console and press Enter.
+  ⚠️ TEST PAGE — Paste the script into console (F12) and press Enter. <code>START_AT</code> must be <code>null</code>.
+  <ul>
+    <li><strong>CONFIRMTKT D CORPORATE</strong> — 2 adjacent seats in Row A. Proceed → "seat taken" popup for <strong>15 seconds</strong>. After 15 s, script auto-books ✅</li>
+    <li><strong>BOAT C STAND</strong> — 2 available seats: Row A seat 5 + Row B seat 20 (NOT adjacent). Script finds no adjacent pair → skips category.</li>
+    <li><strong>All other categories</strong> — Zero available seats. Script skips each after timeout.</li>
+  </ul>
 </div>
 
-<!-- ════════════════════════════════════════════════════════ -->
-<!-- PAGE 1 – Ticket listing                                 -->
-<!-- ════════════════════════════════════════════════════════ -->
+<!-- ════════════ PAGE 1 – Ticket listing ════════════ -->
 <div id="page-tickets" class="page active">
   <div style="padding:24px">
     <div class="breadcrumb">Shop &rsaquo; <span>Ticket</span></div>
@@ -267,10 +320,9 @@
       ⏳ BUY TICKETS button appears in <strong><span id="countdown">3</span>s</strong>
       &nbsp;(simulating ticket sale going live)
     </p>
-
     <div class="match-card">
       <div class="match-info">
-        <div class="match-date">SAT, MAR 28, 2026 07:30 PM</div>
+        <div class="match-date">SAT, APR 05, 2026 07:30 PM</div>
         <div class="match-teams">
           <span>Royal Challengers Bengaluru</span>
           <span class="vs">VS</span>
@@ -286,9 +338,7 @@
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════════════════ -->
-<!-- POPUP – Important Information                          -->
-<!-- ════════════════════════════════════════════════════════ -->
+<!-- ════════════ POPUP – Important Information ════════════ -->
 <div class="overlay" id="popup-overlay">
   <div class="popup-box">
     <h3>Important Information</h3>
@@ -301,9 +351,17 @@
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════════════════ -->
-<!-- PAGE 2 – Category + Seat Selection                     -->
-<!-- ════════════════════════════════════════════════════════ -->
+<!-- ════════════ POPUP – Seat Taken ════════════ -->
+<div class="overlay" id="seat-taken-overlay">
+  <div id="seat-taken-box">
+    <h3>⚠ Seat Unavailable</h3>
+    <p>The seat you selected was taken by another user.<br>Please choose a different seat.</p>
+    <button id="seat-taken-ok-btn">OK</button>
+    <div id="seat-taken-countdown"></div>
+  </div>
+</div>
+
+<!-- ════════════ PAGE 2 – Category + Seat Selection ════════════ -->
 <div id="page-category" class="page">
 
   <!-- Left sidebar: categories -->
@@ -311,56 +369,82 @@
     <div class="sidebar-title">Category</div>
 
     <div class="cat-row" data-cat="CONFIRMTKT D CORPORATE">
-      <span class="cat-name">CONFIRMTKT D CORPORATE</span>
+      <div>
+        <div class="cat-name">CONFIRMTKT D CORPORATE</div>
+        <div class="cat-badge">2 seats • adjacent</div>
+      </div>
       <span class="cat-price">₹ 4500</span>
     </div>
+
     <div class="cat-row" data-cat="BOAT C STAND">
-      <span class="cat-name">BOAT C STAND</span>
+      <div>
+        <div class="cat-name">BOAT C STAND</div>
+        <div class="cat-badge">2 seats • not adjacent</div>
+      </div>
       <span class="cat-price">₹ 3750</span>
     </div>
-    <div class="cat-row" data-cat="E STAND">
-      <span class="cat-name">E STAND</span>
+
+    <div class="cat-row soldout" data-cat="E STAND">
+      <div>
+        <div class="cat-name">E STAND</div>
+        <div class="cat-badge">SOLD OUT</div>
+      </div>
       <span class="cat-price">₹ 4500</span>
     </div>
-    <div class="cat-row" data-cat="SUN PHARMA A STAND">
-      <span class="cat-name">SUN PHARMA A STAND</span>
+
+    <div class="cat-row soldout" data-cat="SUN PHARMA A STAND">
+      <div>
+        <div class="cat-name">SUN PHARMA A STAND</div>
+        <div class="cat-badge">SOLD OUT</div>
+      </div>
       <span class="cat-price">₹ 3750</span>
     </div>
-    <div class="cat-row" data-cat="PUMA SHANTA RANGASWAMY B STAND">
-      <span class="cat-name">PUMA SHANTA RANGASWAMY B STAND</span>
+
+    <div class="cat-row soldout" data-cat="PUMA SHANTA RANGASWAMY B STAND">
+      <div>
+        <div class="cat-name">PUMA SHANTA RANGASWAMY B STAND</div>
+        <div class="cat-badge">SOLD OUT</div>
+      </div>
       <span class="cat-price">₹ 3750</span>
     </div>
-    <div class="cat-row" data-cat="CONFIRMTKT H UPPER">
-      <span class="cat-name">CONFIRMTKT H UPPER</span>
+
+    <div class="cat-row soldout" data-cat="CONFIRMTKT H UPPER">
+      <div>
+        <div class="cat-name">CONFIRMTKT H UPPER</div>
+        <div class="cat-badge">SOLD OUT</div>
+      </div>
       <span class="cat-price">₹ 4500</span>
+    </div>
+
+    <div class="cat-row soldout" data-cat="PUMA B STAND">
+      <div>
+        <div class="cat-name">PUMA B STAND</div>
+        <div class="cat-badge">SOLD OUT</div>
+      </div>
+      <span class="cat-price">₹ 5500</span>
     </div>
   </div>
 
   <!-- Right: seat map -->
   <div class="seat-area">
 
-    <!-- Stadium view shown first (before any category clicked) -->
+    <!-- Stadium placeholder (shown before category clicked) -->
     <div id="stadium-placeholder">
       <div class="pitch">PITCH</div>
       <p>← Select a category on the left to view seats →</p>
     </div>
 
-    <!-- Seat map + controls — shown only after category click -->
+    <!-- Seat map – shown after category click -->
     <div id="seat-map-wrap">
+      <div id="cat-info-bar"></div>
       <div class="seat-instructions">
-        You can select upto a <strong>maximum of 2 seats</strong> and tap
-        <strong>'Proceed'</strong>. Seats may be taken if selected by others at the same time.
+        Select up to <strong>2 seats</strong> and click <strong>Proceed</strong>.
+        Seats may be taken if selected by others at the same time.
       </div>
       <div class="seat-legend">
-        <div class="legend-item">
-          <div class="legend-box legend-available"></div> Available
-        </div>
-        <div class="legend-item">
-          <div class="legend-box legend-taken"></div> Not Available
-        </div>
-        <div class="legend-item">
-          <div class="legend-box legend-selected"></div> Selected
-        </div>
+        <div class="legend-item"><div class="legend-box legend-available"></div> Available</div>
+        <div class="legend-item"><div class="legend-box legend-taken"></div> Not Available</div>
+        <div class="legend-item"><div class="legend-box legend-selected"></div> Selected</div>
       </div>
       <div id="konva-host"></div>
       <div id="selected-label"></div>
@@ -370,18 +454,16 @@
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════════════════ -->
-<!-- PAGE 3 – Payment (automation success)                  -->
-<!-- ════════════════════════════════════════════════════════ -->
+<!-- ════════════ PAGE 3 – Payment ════════════ -->
 <div id="page-payment" class="page">
   <h2>✅ Seats Reserved! Complete Your Payment</h2>
   <p>Your 2 seats have been successfully selected by the script.<br>
      Complete the payment to confirm your booking.</p>
   <div class="payment-summary">
-    <div><strong>Match:</strong> RCB vs SRH — Sat, Mar 28, 2026</div>
+    <div><strong>Match:</strong> RCB vs SRH — Sat, Apr 05, 2026</div>
     <div><strong>Venue:</strong> M. Chinnaswamy Stadium, Bengaluru</div>
     <div><strong>Seats:</strong> 2 × Adjacent Seats (auto-selected)</div>
-    <div><strong>Amount:</strong> ₹ 7,500</div>
+    <div><strong>Amount:</strong> ₹ 9,000</div>
   </div>
   <br>
   <button class="retry-btn" onclick="location.reload()">↩ Test Again</button>
@@ -393,113 +475,185 @@
 // TEST PAGE CONTROLLER
 // ═══════════════════════════════════════════════════════════
 
-const BUY_BTN_DELAY_MS = 3000; // BUY TICKETS button appears after this
+const BUY_BTN_DELAY_MS      = 3000;   // BUY TICKETS appears after this
+const SEAT_TAKEN_RELEASE_MS = 15000;  // Proceeds to payment after this many ms from first Proceed click
 
-let selectedSeats = [];
-let konvaStage    = null;
-let konvaLayer    = null;
+let selectedSeats     = [];
+let konvaStage        = null;
+let konvaLayer        = null;
+let currentCat        = null;
+let firstProceedTime  = null;   // timestamp of first Proceed click on CONFIRMTKT D CORPORATE
 
-// ── Countdown → show BUY TICKETS ────────────────────────────
+// ── Countdown → show BUY TICKETS ──────────────────────────
 let countVal = Math.round(BUY_BTN_DELAY_MS / 1000);
 const countEl = document.getElementById('countdown');
-
 const countTick = setInterval(() => {
   countVal--;
   if (countEl) countEl.textContent = countVal;
   if (countVal <= 0) {
     clearInterval(countTick);
-    const btn = document.getElementById('buy-tickets-btn');
-    const msg = document.getElementById('waiting-msg');
-    btn.style.display = 'block';
-    msg.innerHTML = '✅ <strong>BUY TICKETS is now live!</strong> (Script should click it automatically)';
+    document.getElementById('buy-tickets-btn').style.display = 'block';
+    document.getElementById('waiting-msg').innerHTML =
+      '✅ <strong>BUY TICKETS is now live!</strong> (Script should click it automatically)';
   }
 }, 1000);
 
-// ── BUY TICKETS → popup ──────────────────────────────────────
+// ── BUY TICKETS → Important Information popup ─────────────
 document.getElementById('buy-tickets-btn').addEventListener('click', () => {
   document.getElementById('popup-overlay').classList.add('active');
 });
 
-// ── Continue → category page ─────────────────────────────────
+// ── Continue → category page ──────────────────────────────
 document.getElementById('continue-btn').addEventListener('click', () => {
   document.getElementById('popup-overlay').classList.remove('active');
-  // Hide ticket page
   const tp = document.getElementById('page-tickets');
   tp.classList.remove('active');
   tp.style.display = 'none';
-  // Show category page (stadium view, no seat map yet)
   const cp = document.getElementById('page-category');
   cp.style.display = 'flex';
   cp.classList.add('active');
-  // Do NOT init Konva here — wait for category click
 });
 
-// ── Category click → show seat map, highlight row, reset seats ──
+// ── Category click → show seat map ───────────────────────
 document.querySelectorAll('.cat-row').forEach(row => {
   row.addEventListener('click', () => {
     document.querySelectorAll('.cat-row').forEach(r => r.classList.remove('active'));
     row.classList.add('active');
-
-    // Hide stadium placeholder, show seat map
+    currentCat = row.dataset.cat;
     document.getElementById('stadium-placeholder').style.display = 'none';
     document.getElementById('seat-map-wrap').classList.add('visible');
-
-    // Build (or rebuild) Konva stage for this category
-    initKonva(row.dataset.cat);
+    initKonva(currentCat);
+    updateInfoBar();
   });
 });
 
-// ── Proceed → payment page ───────────────────────────────────
+// ── Proceed button ────────────────────────────────────────
+// For CONFIRMTKT D CORPORATE: triggers seat-taken popup for 15 s, then payment.
+// All other categories: goes straight to payment (won't normally be reached since
+// they have no adjacent pairs, but allows manual testing).
 document.getElementById('proceed-btn').addEventListener('click', () => {
+  if (currentCat === 'CONFIRMTKT D CORPORATE') {
+    if (!firstProceedTime) firstProceedTime = Date.now();
+    const elapsed = Date.now() - firstProceedTime;
+    if (elapsed < SEAT_TAKEN_RELEASE_MS) {
+      const remaining = Math.ceil((SEAT_TAKEN_RELEASE_MS - elapsed) / 1000);
+      showSeatTakenPopup(remaining);
+      return;
+    }
+  }
+  goToPayment();
+});
+
+// ── Seat-taken popup: show ────────────────────────────────
+function showSeatTakenPopup(secondsLeft) {
+  const cd = document.getElementById('seat-taken-countdown');
+  cd.textContent = secondsLeft
+    ? `Seats will become bookable again in ~${secondsLeft}s. Script will keep retrying.`
+    : '';
+  document.getElementById('seat-taken-overlay').classList.add('active');
+}
+
+// ── Seat-taken popup: OK button ───────────────────────────
+// Resets seats back to white so script can try again on next scan.
+document.getElementById('seat-taken-ok-btn').addEventListener('click', () => {
+  document.getElementById('seat-taken-overlay').classList.remove('active');
+  resetSeats();   // put seats back to white — script will re-detect them as available
+});
+
+// ── Info bar per category ─────────────────────────────────
+function updateInfoBar() {
+  const bar = document.getElementById('cat-info-bar');
+  bar.className = 'visible';
+  if (currentCat === 'CONFIRMTKT D CORPORATE') {
+    const elapsed = firstProceedTime ? Date.now() - firstProceedTime : 0;
+    const remaining = Math.max(0, Math.ceil((SEAT_TAKEN_RELEASE_MS - elapsed) / 1000));
+    bar.className = 'visible warn';
+    bar.innerHTML = `
+      <strong>SCENARIO A</strong> — 2 adjacent seats in Row A (seats A13 &amp; A14).
+      Proceed will show "seat taken" popup for <strong>${remaining}s</strong>.
+      After that, booking succeeds automatically.`;
+  } else if (currentCat === 'BOAT C STAND') {
+    bar.className = 'visible warn';
+    bar.innerHTML = `
+      <strong>SCENARIO B</strong> — Row A seat 5 + Row B seat 20 are available
+      but <strong>NOT adjacent</strong> (different rows + wide gap).
+      Script will find no adjacent pair → skips to next category.`;
+  } else {
+    bar.className = 'visible error';
+    bar.innerHTML = `<strong>SOLD OUT</strong> — Zero available seats. Script skips after ${2000}ms timeout.`;
+  }
+}
+
+// ── Navigate to payment page ──────────────────────────────
+function goToPayment() {
   const cp = document.getElementById('page-category');
   cp.style.display = 'none';
   cp.classList.remove('active');
+  // Set title with payment keyword so script detects it
+  document.title = 'Payment Checkout – RCB Booking Confirmation';
   const pp = document.getElementById('page-payment');
   pp.style.display = 'block';
   pp.classList.add('active');
-});
+}
 
 
 // ═══════════════════════════════════════════════════════════
-// KONVA SEAT MAP — mirrors real RCB site exactly:
-//   circles with seat numbers, white = available, grey = unavailable
-//   rows G→A top to bottom, labels on both sides
+// KONVA SEAT MAP
+//   Rows G→A  (index 0→6, labels top→bottom)
+//   white  = available  (matches real RCB site)
+//   grey   = unavailable
+//   red    = selected
 // ═══════════════════════════════════════════════════════════
 
-const ROWS     = 7;          // G F E D C B A
+const ROWS     = 7;
 const COLS     = 25;
-const SW       = 20;         // seat width (px)
-const SH       = 20;         // seat height (px)
-const CR       = 4;          // corner radius — gives the real site's cut-corner look
-const SEAT_GAP = 3;          // gap between seats
-const ROW_GAP  = 3;          // gap between rows
-const STEP     = SW + SEAT_GAP;   // centre-to-centre distance
-const ROW_STEP = SH + ROW_GAP;
-const PAD_X    = 32;         // left padding (room for row label)
-const PAD_Y    = 20;         // top padding
+const SW       = 20;
+const SH       = 20;
+const CR       = 4;
+const SEAT_GAP = 3;
+const ROW_GAP  = 3;
+const STEP     = SW + SEAT_GAP;    // 23 px centre-to-centre
+const ROW_STEP = SH + ROW_GAP;    // 23 px row-to-row
+const PAD_X    = 32;
+const PAD_Y    = 20;
 const LABEL_W  = 16;
 const STAGE_W  = PAD_X + LABEL_W + COLS * STEP + LABEL_W + PAD_X;
 const STAGE_H  = PAD_Y + ROWS * ROW_STEP + PAD_Y;
 
-const FILL_AVAILABLE = '#ffffff';   // white  → available (real site)
-const FILL_TAKEN     = '#aaaaaa';   // grey   → unavailable
-const FILL_SELECTED  = '#cc0000';   // red    → selected
-const STROKE_AVAIL   = '#c8a200';   // gold border → available (matches real site)
-const STROKE_TAKEN   = '#999999';   // subtle border on taken seats
+const FILL_AVAILABLE = '#ffffff';
+const FILL_TAKEN     = '#aaaaaa';
+const FILL_SELECTED  = '#cc0000';
+const STROKE_AVAIL   = '#c8a200';
+const STROKE_TAKEN   = '#999999';
 const STROKE_SEL     = '#990000';
 
-const ROW_LABELS = ['G', 'F', 'E', 'D', 'C', 'B', 'A'];  // top → bottom
+const ROW_LABELS = ['G', 'F', 'E', 'D', 'C', 'B', 'A'];  // index 0→6
 
-// Available seat pattern — row A (index 6) has a cluster so script can find adjacent pairs
+/**
+ * Availability rules:
+ *
+ *  CONFIRMTKT D CORPORATE
+ *    → Row A (r=6): columns 12 & 13  (seats A13 & A14, adjacent, gap = 23px < 55px)
+ *
+ *  BOAT C STAND
+ *    → Row A (r=6): column 4  (seat A5)
+ *    → Row B (r=5): column 19 (seat B20)
+ *    Different rows + 345px gap → script finds NO adjacent pair
+ *
+ *  Everything else → no available seats
+ */
 function isAvailable(r, c) {
-  if (r === 6 && c >= 10 && c <= 16) return true;  // row A: seats 11-17 available
-  if (r === 5 && c >= 18 && c <= 21) return true;  // row B: seats 19-22
-  if (r === 4 && c >= 6  && c <= 9)  return true;  // row C: seats 7-10
-  if (r === 3 && c >= 13 && c <= 15) return true;  // row D: seats 14-16
+  if (currentCat === 'CONFIRMTKT D CORPORATE') {
+    return r === 6 && (c === 12 || c === 13);
+  }
+  if (currentCat === 'BOAT C STAND') {
+    return (r === 6 && c === 4) || (r === 5 && c === 19);
+  }
   return false;
 }
 
 function initKonva(catName) {
+  // Tear down existing stage
   if (konvaStage) {
     konvaStage.destroy();
     konvaStage = null;
@@ -522,8 +676,7 @@ function initKonva(catName) {
   konvaStage.add(konvaLayer);
 
   for (let r = 0; r < ROWS; r++) {
-    // cy = vertical center of this row
-    const cy = PAD_Y + SH / 2 + r * ROW_STEP;
+    const cy       = PAD_Y + SH / 2 + r * ROW_STEP;
     const rowLabel = ROW_LABELS[r];
 
     // Row label LEFT
@@ -534,15 +687,13 @@ function initKonva(catName) {
     }));
 
     for (let c = 0; c < COLS; c++) {
-      // cx/cy = center of seat rect
-      const cx    = PAD_X + LABEL_W + SW / 2 + c * STEP;
-      const avail = isAvailable(r, c);
+      const cx     = PAD_X + LABEL_W + SW / 2 + c * STEP;
+      const avail  = isAvailable(r, c);
       const seatId = rowLabel + (c + 1);
 
-      // Rounded-rectangle seat (matches real RCB site shape)
       const rect = new Konva.Rect({
-        x: cx - SW / 2,
-        y: cy - SH / 2,
+        x:            cx - SW / 2,
+        y:            cy - SH / 2,
         width:        SW,
         height:       SH,
         cornerRadius: CR,
@@ -552,11 +703,10 @@ function initKonva(catName) {
         listening:    avail,
         name:         avail ? 'available' : 'taken',
       });
-      rect._r  = r;
-      rect._c  = c;
+      rect._r = r;
+      rect._c = c;
       rect._id = seatId;
 
-      // Seat number centered inside the rect
       const numStr   = String(c + 1);
       const fontSize = numStr.length > 2 ? 6 : numStr.length > 1 ? 7 : 8;
       const numLabel = new Konva.Text({
@@ -569,6 +719,9 @@ function initKonva(catName) {
         fill:   avail ? '#444' : '#888',
         listening: false,
       });
+
+      // Store numLabel on rect so resetSeats() can restore its colour
+      rect._numLabel = numLabel;
 
       if (avail) {
         rect.on('click tap', () => handleSeatClick(rect, numLabel));
@@ -597,9 +750,8 @@ function initKonva(catName) {
     }
 
     // Row label RIGHT
-    const rxRight = PAD_X + LABEL_W + COLS * STEP + 4;
     konvaLayer.add(new Konva.Text({
-      x: rxRight, y: cy - 6,
+      x: PAD_X + LABEL_W + COLS * STEP + 4, y: cy - 6,
       text: rowLabel, fontSize: 11, fill: '#c8a200', fontStyle: 'bold',
       listening: false,
     }));
@@ -611,25 +763,26 @@ function initKonva(catName) {
 function handleSeatClick(rect, numLabel) {
   const idx = selectedSeats.indexOf(rect);
   if (idx !== -1) {
+    // Deselect
     selectedSeats.splice(idx, 1);
     rect.fill(FILL_AVAILABLE);
     rect.stroke(STROKE_AVAIL);
     rect.strokeWidth(1.5);
     numLabel.fill('#444');
   } else if (selectedSeats.length < 2) {
+    // Select
     selectedSeats.push(rect);
     rect.fill(FILL_SELECTED);
     rect.stroke(STROKE_SEL);
     rect.strokeWidth(1.5);
     numLabel.fill('#fff');
   } else {
+    // Replace oldest
     const old = selectedSeats.shift();
-    const oldIdx = konvaLayer.children.indexOf(old);
-    const oldNum = konvaLayer.children[oldIdx + 1];
-    if (oldNum && oldNum.className === 'Text') { oldNum.fill('#444'); }
     old.fill(FILL_AVAILABLE);
     old.stroke(STROKE_AVAIL);
     old.strokeWidth(1.5);
+    if (old._numLabel) old._numLabel.fill('#444');
     selectedSeats.push(rect);
     rect.fill(FILL_SELECTED);
     rect.stroke(STROKE_SEL);
@@ -646,9 +799,8 @@ function updateProceedBtn() {
   const label  = document.getElementById('selected-label');
 
   if (selectedSeats.length === 2) {
-    const s1 = selectedSeats[0], s2 = selectedSeats[1];
     btn.classList.add('visible');
-    label.textContent = `Selected: ${s1._id} & ${s2._id}`;
+    label.textContent = `Selected: ${selectedSeats[0]._id} & ${selectedSeats[1]._id}`;
     status.textContent = '✅ Click Proceed to continue.';
   } else if (selectedSeats.length === 1) {
     btn.classList.remove('visible');
@@ -661,9 +813,19 @@ function updateProceedBtn() {
   }
 }
 
+/**
+ * Reset all selected seats back to white (available).
+ * Called when the seat-taken popup's OK is dismissed, so the script can
+ * re-detect them as available and try to select + proceed again.
+ */
 function resetSeats() {
   if (!konvaLayer) return;
-  selectedSeats.forEach(s => s.fill(FILL_AVAILABLE));
+  selectedSeats.forEach(s => {
+    s.fill(FILL_AVAILABLE);
+    s.stroke(STROKE_AVAIL);
+    s.strokeWidth(1.5);
+    if (s._numLabel) s._numLabel.fill('#444');
+  });
   selectedSeats = [];
   konvaLayer.batchDraw();
   updateProceedBtn();
